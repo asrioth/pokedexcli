@@ -1,2 +1,4 @@
 repl.log
 pokedexcli
+pokeapi/pokeapi
+*.json
