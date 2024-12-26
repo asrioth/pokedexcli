@@ -1,8 +1,10 @@
 package pokeapi
 
-import "testing"
+import (
+	"testing"
+)
 
-func TestPokeMap(t *testing.T) {
+func TestGetMapStrings(t *testing.T) {
 	expectedAreas := []string{"canalave-city-area",
 		"eterna-city-area",
 		"pastoria-city-area",
@@ -35,6 +37,20 @@ func TestPokeMap(t *testing.T) {
 	for index := range expectedAreas {
 		if acturalAreas[index] != expectedAreas[index] {
 			t.Errorf("actual area '%v' did not match expected area '%v", acturalAreas[index], expectedAreas[index])
+		}
+	}
+}
+
+func TestGetPokemonForArea(t *testing.T) {
+	actualPokemon, err := GetPokemonForArea("eterna-city-area")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	expectedPokemon := []string{"psyduck", "golduck", "magikarp", "gyarados", "barboach", "whiscash"}
+	for index := range expectedPokemon {
+		if actualPokemon[index] != expectedPokemon[index] {
+			t.Errorf("actual pokemon '%v' did not match expected pokemon '%v", actualPokemon[index], expectedPokemon[index])
 		}
 	}
 }

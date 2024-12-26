@@ -42,6 +42,36 @@ func checkPokeDataCache[PDT PokeDataType](minIndex, maxIndex int, filePath strin
 	return pokeData, nil
 }
 
+func checkPokeDataCacheByName[PDT PokeDataType](name string, filePath string) (PDT, error) {
+	pokeDataFile, err := os.Open(filePath)
+	if err != nil {
+		var pdt PDT
+		return pdt, err
+	}
+	defer pokeDataFile.Close()
+	var allPokeData []PDT
+	decoder := json.NewDecoder(pokeDataFile)
+	if err := decoder.Decode(&allPokeData); err != nil {
+		var pdt PDT
+		return pdt, err
+	}
+	var pokeDatumMatch PDT
+	pokeMatch := false
+	for _, pokeDatum := range allPokeData {
+		if pokeDatum.GetName() == name {
+			pokeDatumMatch = pokeDatum
+			pokeMatch = true
+			break
+		}
+	}
+
+	if !pokeMatch {
+		var pdt PDT
+		return pdt, errors.New("no pokeData in index range")
+	}
+	return pokeDatumMatch, nil
+}
+
 func GetPokeDatum[PDT PokeDataType](id int, url, filePath string, cacheChecked bool) (PDT, error) {
 	if !cacheChecked {
 		cachePokeData, err := checkPokeDataCache[PDT](id-1, id-1, filePath)
@@ -65,6 +95,47 @@ func GetPokeDatum[PDT PokeDataType](id int, url, filePath string, cacheChecked b
 	return pokeDatum, nil
 }
 
+func GetPokeDatumByName[PDT PokeDataType](name string, url, filePath string, cacheChecked bool) (PDT, error) {
+	if !cacheChecked {
+		pokeDatum, err := checkPokeDataCacheByName[PDT](name, filePath)
+		if err == nil {
+			return pokeDatum, nil
+		}
+	}
+	currentUrl := fmt.Sprintf(url, name)
+	getResult, err := http.Get(currentUrl)
+	if err != nil {
+		var empty PDT
+		return empty, err
+	}
+	defer getResult.Body.Close()
+	var pokeDatum PDT
+	decoder := json.NewDecoder(getResult.Body)
+	if err := decoder.Decode(&pokeDatum); err != nil {
+		var empty PDT
+		return empty, err
+	}
+	return pokeDatum, nil
+}
+
+func getPokeIdByName(name, filePath string) int {
+	pokeId := 0
+	for i := 0; ; i++ {
+		currentPath := getCurrentPath(filePath, strconv.Itoa(i))
+		currentPath = getCurrentPath(currentPath, "id")
+		pokeNameId, err := checkPokeDataCacheByName[PokeNameId](name, currentPath)
+		if err != nil {
+			if !errors.Is(err, errors.New("no pokeData in index range")) {
+				break
+			}
+			continue
+		}
+		pokeId = pokeNameId.Id
+		break
+	}
+	return pokeId
+}
+
 func GetMissingPokeData[PDT PokeDataType](missingPokeData []int, url, filePath string) ([]PDT, error) {
 	pokeData := make([]PDT, len(missingPokeData))
 	for index, id := range missingPokeData {
@@ -79,34 +150,55 @@ func GetMissingPokeData[PDT PokeDataType](missingPokeData []int, url, filePath s
 
 func cachePokeData[PDT PokeDataType](pokeData []PDT, filePath string) error {
 	var cachedPokeData []PDT
-	_, err := os.Stat(filePath)
-	if errors.Is(err, fs.ErrExist) {
-		pokeDataFile, err := os.Open(filePath)
-		if err != nil {
-			return err
-		}
+	var cachedPokeDataNames []PokeNameId
+	fileIdPath := getCurrentPath(filePath, "id")
+	pokeDataFile, err := os.Open(filePath)
+	if err == nil {
 		decoder := json.NewDecoder(pokeDataFile)
 		if err := decoder.Decode(&cachedPokeData); err != nil {
 			pokeDataFile.Close()
 			return err
 		}
 		pokeDataFile.Close()
+		pokeNameIdFile, err := os.Open(fileIdPath)
+		if err != nil {
+			return err
+		}
+		decoder = json.NewDecoder(pokeNameIdFile)
+		if err := decoder.Decode(&cachedPokeDataNames); err != nil {
+			pokeDataFile.Close()
+			return err
+		}
+		pokeNameIdFile.Close()
 	}
 
 	cachedPokeData = append(cachedPokeData, pokeData...)
+	for _, pokeDatum := range pokeData {
+		pokeNameId := PokeNameId{pokeDatum.GetName(), pokeDatum.GetID()}
+		cachedPokeDataNames = append(cachedPokeDataNames, pokeNameId)
+	}
 
 	if errors.Is(err, fs.ErrNotExist) {
 		dirSep := strings.LastIndex(filePath, "/")
 		os.MkdirAll(filePath[:dirSep], 0755)
 	}
 
-	pokeDataFile, err := os.Create(filePath)
+	pokeDataFile, err = os.Create(filePath)
 	if err != nil {
 		return err
 	}
 	defer pokeDataFile.Close()
 	encoder := json.NewEncoder(pokeDataFile)
 	if err := encoder.Encode(cachedPokeData); err != nil {
+		return err
+	}
+	pokeNameDataFile, err := os.Create(fileIdPath)
+	if err != nil {
+		return err
+	}
+	defer pokeNameDataFile.Close()
+	encoder = json.NewEncoder(pokeNameDataFile)
+	if err := encoder.Encode(cachedPokeDataNames); err != nil {
 		return err
 	}
 	return nil
@@ -160,9 +252,14 @@ func GetPokeData[PDT PokeDataType](minIndex, maxIndex int, url, filePath string)
 	return pokeMap
 }*/
 
+func getCurrentPath(filepath string, fileId string) string {
+	pathExtension := strings.Split(filepath, ".")
+	currentPath := pathExtension[0] + fileId + "." + pathExtension[1]
+	return currentPath
+}
+
 func GetMapStrings(minIndex, maxIndex int) ([]string, error) {
-	pathExtension := strings.Split(areasPath, ".")
-	currentAreaPath := pathExtension[0] + strconv.Itoa(minIndex/20) + "." + pathExtension[1]
+	currentAreaPath := getCurrentPath(areasPath, strconv.Itoa(minIndex/20))
 	path, err := filepath.Localize(currentAreaPath)
 	if err != nil {
 		return nil, err
@@ -176,4 +273,23 @@ func GetMapStrings(minIndex, maxIndex int) ([]string, error) {
 		areaNames[index] = areas[index].Name
 	}
 	return areaNames, nil
+}
+
+func GetPokemonForArea(areaName string) ([]string, error) {
+	id := getPokeIdByName(areaName, areasPath)
+	var pokemonNames []string
+	var area Area
+	var err error
+	if id != 0 {
+		area, err = GetPokeDatum[Area](id, pokeApiAreaUrl, getCurrentPath(areasPath, strconv.Itoa(id/20)), false)
+	} else {
+		area, err = GetPokeDatumByName[Area](areaName, pokeApiAreaUrl, "", true)
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, ecnounter := range area.PokemonEncounters {
+		pokemonNames = append(pokemonNames, ecnounter.Pokemon.Name)
+	}
+	return pokemonNames, nil
 }

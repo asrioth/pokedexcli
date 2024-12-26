@@ -14,6 +14,7 @@ import (
 type Config struct {
 	Next     int
 	Previous int
+	args     []string
 	data     *pokeCache.Cache
 }
 
@@ -25,19 +26,20 @@ type CliCommand struct {
 }
 
 func initializeCommands() map[string]CliCommand {
-	mapConfig := Config{0, 0, pokeCache.NewCache(time.Second * 5)}
+	mapConfig := Config{0, 0, nil, pokeCache.NewCache(time.Second * 5)}
+	exploreArgs := make([]string, 1)
 	supportedCommands := map[string]CliCommand{
 		"exit": {
 			name:        "exit",
 			description: "Exit the Pokedex",
 			callback:    commandExit,
-			config:      &Config{0, 0, nil},
+			config:      &Config{0, 0, nil, nil},
 		},
 		"help": {
 			name:        "exit",
 			description: "Displays a help message",
 			callback:    commandHelp,
-			config:      &Config{0, 0, nil},
+			config:      &Config{0, 0, nil, nil},
 		},
 		"map": {
 			name:        "map",
@@ -50,6 +52,11 @@ func initializeCommands() map[string]CliCommand {
 			description: "Lists the previous 20 location areas",
 			callback:    commandMapBack,
 			config:      &mapConfig,
+		}, "explore": {
+			name:        "explore",
+			description: "Lists all pokemon in the area, takes an area name eg. explore canalave-city-area",
+			callback:    commandExplore,
+			config:      &Config{0, 0, exploreArgs, nil},
 		},
 	}
 	return supportedCommands
@@ -73,6 +80,14 @@ func runCommands(words []string, supportedCommands map[string]CliCommand) {
 		if !ok {
 			fmt.Printf("%v not a valid command.\n All of input : %v must be valid commands or part of a valid command.\n", word, words)
 			break
+		}
+		if i+len(command.config.args) >= len(words) {
+			fmt.Printf("%v expects %v arguments and command has %v arguments.\n", word, len(command.config.args), len(words)-(i+1))
+			break
+		}
+		for argI := 0; argI < len(command.config.args); argI++ {
+			i++
+			command.config.args[argI] = words[i]
 		}
 		err := command.callback(command.config)
 		if err != nil {
@@ -102,7 +117,6 @@ func commandMap(config *Config) error {
 	var data []string
 	data = config.data.GetRange(config.Next+1, config.Next+20)
 	if data == nil {
-		fmt.Println("no Cache")
 		mapStrings, err := pokeapi.GetMapStrings(config.Next, config.Next+19)
 		if err != nil {
 			return err
@@ -127,7 +141,6 @@ func commandMapBack(config *Config) error {
 	var data []string
 	data = config.data.GetRange(config.Previous-19, config.Previous)
 	if data == nil {
-		fmt.Println("no Cache")
 		mapStrings, err := pokeapi.GetMapStrings(config.Previous-20, config.Previous-1)
 		if err != nil {
 			return err
@@ -140,6 +153,19 @@ func commandMapBack(config *Config) error {
 	}
 	config.Next = config.Previous
 	config.Previous -= 20
+	return nil
+}
+
+func commandExplore(config *Config) error {
+	fmt.Printf("Exploring %v...\n", config.args[0])
+	pokemons, err := pokeapi.GetPokemonForArea(config.args[0])
+	if err != nil {
+		return err
+	}
+	fmt.Println("Found Pokemon:")
+	for _, pokemon := range pokemons {
+		fmt.Printf(" - %v\n", pokemon)
+	}
 	return nil
 }
 

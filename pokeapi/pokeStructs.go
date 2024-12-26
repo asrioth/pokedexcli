@@ -2,6 +2,20 @@ package pokeapi
 
 type PokeDataType interface {
 	GetID() int
+	GetName() string
+}
+
+type PokeNameId struct {
+	Name string `json:"name"`
+	Id   int    `json:"id"`
+}
+
+func (P PokeNameId) GetID() int {
+	return P.Id
+}
+
+func (P PokeNameId) GetName() string {
+	return P.Name
 }
 
 type Location struct {
@@ -35,6 +49,15 @@ func (L Location) GetID() int {
 	return L.ID
 }
 
+func (L Location) GetName() string {
+	return L.Name
+}
+
+type Pokemon struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
 type Area struct {
 	EncounterMethodRates []struct {
 		EncounterMethod struct {
@@ -64,10 +87,7 @@ type Area struct {
 		Name string `json:"name"`
 	} `json:"names"`
 	PokemonEncounters []struct {
-		Pokemon struct {
-			Name string `json:"name"`
-			URL  string `json:"url"`
-		} `json:"pokemon"`
+		Pokemon        `json:"pokemon"`
 		VersionDetails []struct {
 			EncounterDetails []struct {
 				Chance          int   `json:"chance"`
@@ -90,4 +110,8 @@ type Area struct {
 
 func (A Area) GetID() int {
 	return A.ID
+}
+
+func (A Area) GetName() string {
+	return A.Name
 }
