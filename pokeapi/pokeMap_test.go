@@ -54,3 +54,50 @@ func TestGetPokemonForArea(t *testing.T) {
 		}
 	}
 }
+
+func TestGetPokemonBaseXp(t *testing.T) {
+	baseXp, err := GetPokemonBaseXp("squirtle")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	expectedXp := 63
+	if expectedXp != baseXp {
+		t.Errorf("actual Xp %v not equal to expected Xp %v", baseXp, expectedXp)
+	}
+}
+
+func TestGetPokemonStats(t *testing.T) {
+	pokemonDescription, err := GetPokemonStats("pikachu")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if pokemonDescription.Hp != 35 {
+		t.Errorf("worng Hp %v", pokemonDescription.Hp)
+	}
+	if pokemonDescription.Attack != 55 {
+		t.Errorf("worng Attack %v", pokemonDescription.Attack)
+	}
+	if pokemonDescription.Defense != 40 {
+		t.Errorf("worng Defense %v", pokemonDescription.Defense)
+	}
+	if pokemonDescription.SpecialAttack != 50 {
+		t.Errorf("worng SpecialAttack %v", pokemonDescription.SpecialAttack)
+	}
+	if pokemonDescription.SpecialDefense != 50 {
+		t.Errorf("worng SpecialDefense %v", pokemonDescription.SpecialDefense)
+	}
+	if pokemonDescription.Speed != 90 {
+		t.Errorf("worng Speed %v", pokemonDescription.Speed)
+	}
+	if pokemonDescription.Height != 4 {
+		t.Errorf("worng Height %v", pokemonDescription.Height)
+	}
+	if pokemonDescription.Weight != 60 {
+		t.Errorf("worng Weight %v", pokemonDescription.Weight)
+	}
+	if pokemonDescription.Types[0] != "electric" {
+		t.Errorf("worng Types %v", pokemonDescription.Types)
+	}
+}

@@ -1,4 +1,5 @@
 repl.log
 pokedexcli
 pokeapi/pokeapi
+pokemon/
 *.json
