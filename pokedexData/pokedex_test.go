@@ -20,3 +20,19 @@ func TestPokedexCatch(t *testing.T) {
 		t.Errorf("Fail count (%v) not incremented on failed catch", pokedex.CaughtPokemon[name].CatchCount)
 	}
 }
+
+func TestPokedexSaveLoad(t *testing.T) {
+	pokedex := PokeDex{CaughtPokemon: make(map[string]Pokemon)}
+	name := "testachu"
+	pokedex.Catch(name, true)
+	pokedex.Save()
+	pokedex = PokeDex{}
+	pokedex.Load()
+	pokemon, ok := pokedex.CaughtPokemon[name]
+	if !ok {
+		t.Error("pokemon failed to load")
+	}
+	if pokemon.Name != name {
+		t.Error("load incorrectly stored pokemon")
+	}
+}

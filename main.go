@@ -31,6 +31,7 @@ type CliCommand struct {
 
 func initializeCommands() map[string]CliCommand {
 	pokedex := pokedexData.PokeDex{CaughtPokemon: make(map[string]pokedexData.Pokemon)}
+	pokedex.Load()
 	mapConfig := Config{0, 0, nil, pokeCache.NewCache(time.Second * 5), pokedex}
 	exploreArgs := make([]string, 1)
 	supportedCommands := map[string]CliCommand{
@@ -75,6 +76,12 @@ func initializeCommands() map[string]CliCommand {
 			description: "Displays pokemon data if user has attemted to catch the pokemon before",
 			callback:    commandInspect,
 			config:      &Config{0, 0, exploreArgs, nil, pokedex},
+		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "Lists the pokemon caught so far",
+			callback:    commandPokedex,
+			config:      &Config{0, 0, nil, nil, pokedex},
 		},
 	}
 	return supportedCommands
@@ -207,6 +214,7 @@ func commandCatch(config *Config) error {
 		fmt.Printf("%v escaped!\n", name)
 		config.pokedex.Catch(name, false)
 	}
+	config.pokedex.Save()
 	return nil
 }
 
@@ -222,29 +230,67 @@ func commandInspect(config *Config) error {
 			return nil
 		}
 		config.pokedex.AddDescription(name, pokemonDescription)
+		config.pokedex.Save()
 	}
 	pokemon, _ = config.pokedex.GetPokemon(name)
 	fmt.Printf("Name: %v\n", pokemon.Name)
 	fmt.Printf("Successful Catches: %v\n", pokemon.CatchCount)
 	fmt.Printf("Failed Catches: %v\n", pokemon.FailCatchCount)
-	fmt.Printf("Height: %v\n", pokemon.Description.Height)
-	fmt.Printf("Weight: %v\n", pokemon.Description.Weight)
-	fmt.Println("Stats:")
-	printStat("hp", pokemon.Description.Hp)
-	printStat("attack", pokemon.Description.Attack)
-	printStat("defense", pokemon.Description.Defense)
-	printStat("special-attack", pokemon.Description.SpecialAttack)
-	printStat("special-defense", pokemon.Description.SpecialDefense)
-	printStat("speed", pokemon.Description.Speed)
-	fmt.Println("Types:")
-	for _, pokeType := range pokemon.Description.Types {
-		fmt.Printf(" - %v\n", pokeType)
+	if pokemon.CatchCount > 0 {
+		fmt.Printf("Height: %v\n", pokemon.Description.Height)
+		fmt.Printf("Weight: %v\n", pokemon.Description.Weight)
+		fmt.Println("Stats:")
+		printStat("hp", pokemon.Description.Hp)
+		printStat("attack", pokemon.Description.Attack)
+		printStat("defense", pokemon.Description.Defense)
+		printStat("special-attack", pokemon.Description.SpecialAttack)
+		printStat("special-defense", pokemon.Description.SpecialDefense)
+		printStat("speed", pokemon.Description.Speed)
+		fmt.Println("Types:")
+		for _, pokeType := range pokemon.Description.Types {
+			printBullet("", pokeType)
+			//fmt.Printf(" - %v\n", pokeType)
+		}
+	} else {
+		fmt.Printf("Height: %v\n", "?")
+		fmt.Printf("Weight: %v\n", "?")
+		fmt.Println("Stats:")
+		printBullet("hp: ", "?")
+		printBullet("attack: ", "?")
+		printBullet("defense: ", "?")
+		printBullet("special-attack: ", "?")
+		printBullet("special-defense: ", "?")
+		printBullet("speed: ", "?")
+		fmt.Println("Types:")
+		for range pokemon.Description.Types {
+			printBullet("", "?")
+		}
+	}
+
+	return nil
+}
+
+func commandPokedex(config *Config) error {
+	fmt.Println("Your Pokedex:")
+	hasCaught := false
+	for _, pokemon := range config.pokedex.CaughtPokemon {
+		if pokemon.CatchCount > 0 {
+			printBullet("", pokemon.Name)
+			hasCaught = true
+		}
+	}
+	if !hasCaught {
+		return errors.New("no pokemon caught yet")
 	}
 	return nil
 }
 
 func printStat(statName string, stat int) {
 	fmt.Printf(" - %v: %v\n", statName, stat)
+}
+
+func printBullet(statName, stat string) {
+	fmt.Printf(" - %v%v\n", statName, stat)
 }
 
 func cleanInput(text string) []string {

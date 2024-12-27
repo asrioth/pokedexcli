@@ -1,6 +1,14 @@
 package pokedexData
 
-import "github.com/asrioth/pokedexcli/pokeapi"
+import (
+	"encoding/json"
+	"errors"
+	"io/fs"
+	"os"
+	"strings"
+
+	"github.com/asrioth/pokedexcli/pokeapi"
+)
 
 const PokedexPath string = "pokedexData/pokedex.json"
 
@@ -24,8 +32,35 @@ func (P PokeDex) GetName() string {
 }
 
 func (P PokeDex) Save() {
-	pArray := []PokeDex{P}
-	pokeapi.CachePokeData(pArray, PokedexPath, false)
+	_, err := os.Open(PokedexPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		dirSep := strings.LastIndex(PokedexPath, "/")
+		os.MkdirAll(PokedexPath[:dirSep], 0755)
+	}
+
+	pokedexFile, err := os.Create(PokedexPath)
+	if err != nil {
+		return
+	}
+	defer pokedexFile.Close()
+	encoder := json.NewEncoder(pokedexFile)
+	if err := encoder.Encode(P); err != nil {
+		return
+	}
+}
+
+func (P *PokeDex) Load() {
+	pokedexFile, err := os.Open(PokedexPath)
+	if err != nil {
+		return
+	}
+	defer pokedexFile.Close()
+	var pokedex PokeDex
+	decoder := json.NewDecoder(pokedexFile)
+	if err := decoder.Decode(&pokedex); err != nil {
+		return
+	}
+	*P = pokedex
 }
 
 func (P PokeDex) Catch(name string, caught bool) Pokemon {
